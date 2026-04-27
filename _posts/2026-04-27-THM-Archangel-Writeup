@@ -1,0 +1,9 @@
+---
+title: THM Archangel Writeup
+date: 2026-04-27 
+categories: [THM]
+tags: [LFI]     # TAG names should always be lowercase
+---
+
+test post
+![img-description](/assets/img/thm/archangel/nmap_scan.png)
