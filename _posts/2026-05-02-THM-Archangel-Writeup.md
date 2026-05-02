@@ -218,7 +218,7 @@ strace /home/archangel/secret/backup 2>&1 | grep -iE "open|access|no such file"
 ```
 wait4(1153, cp: cannot stat '/home/user/archangel/myfiles/*': No such file or directory
 ```
-The line above is the very last line of the output. It indicates that `/home/archangel/secret/backup` tried to copy a non-existing file. The most important thing and the one that enables the last step of privilage escalation is the fact that the command used `cp`, and not its absolute path variant. So, the first executable with name `cp` following the string of directories defined in `PATH` will be used. A perfect scenario for **Path Hijacking**. On a side note, `strings` and  `ltrace` would also reveal the above-described vulnerability.
+The line above is the very last line of the output. It indicates that `/home/archangel/secret/backup` tried to copy a non-existing file. The most important thing and the one that enables the last step of privilage escalation is the fact that the command used `cp`, and not its absolute path variant. So, the system will you the first executable with name `cp` following the string of directories defined in `PATH`. A perfect scenario for **Path Hijacking**. On a side note, `strings` and  `ltrace` would also reveal the above-described vulnerability.
 
 To exploit this, I created a fake `cp` executable in `/tmp` and put `/tmp` as the first directory in system `PATH`:
 ```bash
