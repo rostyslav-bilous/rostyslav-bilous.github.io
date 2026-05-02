@@ -55,10 +55,10 @@ layout              (Status: 301) [Size: 315] [--> http://10.128.185.88/layout/]
 pages               (Status: 301) [Size: 314] [--> http://10.128.185.88/pages/]
 ```
 First, I quickly checked `flags/`, but it turned out to contain only an HTML RickRoll redirect.
-![Getting RickRolled](assets\img\archangel\1-flags_html_redirect.png)
+![Getting RickRolled](assets/img/archangel/1-flags_html_redirect.png)
 
 `pages/` and `layout/` also did not contain anything useful. At this point I decided to go back to the home page  and scan it again for any clues. And here it is - a hostname, at the very top of the page.
-![A hostname](assets\img\archangel\2-hostname.png)
+![A hostname](assets/img/archangel/2-hostname.png)
 
 If I wouldn't have found anything on the home page I would consider using a bigger list such as `dirbuster/directory-list-2.3-medium.txt` or searching for files with extensions like `php`,`html` or `bak`. Luckily, this wasn't necessary.
 
