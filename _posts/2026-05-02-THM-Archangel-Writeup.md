@@ -4,9 +4,7 @@ date: 2026-05-02
 categories: [TryHackMe]
 tags: ["local file inclusion", poison, "cron jobs", suid, "path hijacking"]     # TAG names should always be lowercase
 image:
-  path: assets/img/archangel/archangel_thm_logo.jpeg
-  width: 100
-  height: 100
+  path: assets/img/archangel/archangel-logo-bg.png
 description: A beginner-friendly room focusing on web exploitation via Local File Inclusion and gaining root access through insecurely configured cron jobs and path hijacking.
 comments: true
 ---
