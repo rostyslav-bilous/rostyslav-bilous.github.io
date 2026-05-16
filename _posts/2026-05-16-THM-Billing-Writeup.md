@@ -5,7 +5,7 @@ categories: [TryHackMe]
 tags: [web, "command injection", sudo, fail2ban]     # TAG names should always be lowercase
 image:
   path: assets/img/billing/billing-logo-bg.png
-description: something
+description: Exploiting a command injection vulnerability in MagnusBilling and abusing a misconfigured fail2ban setup to achieve root access.
 comments: true
 ---
 
