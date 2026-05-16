@@ -2,7 +2,7 @@
 title: TryHackMe | Archangel Writeup 
 date: 2026-05-02 
 categories: [TryHackMe]
-tags: ["local file inclusion", poison, "cron jobs", suid, "path hijacking"]     # TAG names should always be lowercase
+tags: [web, "local file inclusion", poison, "cron jobs", suid, "path hijacking"]     # TAG names should always be lowercase
 image:
   path: assets/img/archangel/archangel-logo-bg.png
 description: A beginner-friendly room focusing on web exploitation via Local File Inclusion and gaining root access through insecurely configured cron jobs and path hijacking.
